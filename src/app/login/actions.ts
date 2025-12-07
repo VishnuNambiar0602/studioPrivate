@@ -3,28 +3,24 @@
 import * as z from "zod";
 
 const loginSchema = z.object({
-  email: z.string().email(),
-  password: z.string(),
+  petName: z.string().min(1, "A pet name is required."),
 });
 
-// NOTE: In a real application, these would be environment variables.
-// For this romantic app, hardcoding is part of the charm.
-const HARDCODED_EMAIL = "mylove@forever.us";
-const HARDCODED_PASSWORD = "password";
+const VALID_PET_NAMES = ["vishnu", "vaishakhanandini"];
 
 export async function login(values: z.infer<typeof loginSchema>) {
   const validatedFields = loginSchema.safeParse(values);
 
   if (!validatedFields.success) {
-    return { error: "Invalid fields!", success: false };
+    return { error: "Invalid field!", success: false };
   }
 
-  const { email, password } = validatedFields.data;
+  const { petName } = validatedFields.data;
 
-  if (email.toLowerCase() === HARDCODED_EMAIL && password === HARDCODED_PASSWORD) {
+  if (VALID_PET_NAMES.includes(petName.toLowerCase())) {
     // In a real app, you would create a session here (e.g., with cookies or JWT)
     return { success: true };
   }
 
-  return { error: "Incorrect email or password. Try our special date!", success: false };
+  return { error: "That's not the secret name I know.", success: false };
 }

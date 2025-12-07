@@ -27,8 +27,7 @@ import { useToast } from "@/hooks/use-toast";
 import { login } from "./actions";
 
 const formSchema = z.object({
-  email: z.string().email({ message: "Invalid email address." }),
-  password: z.string().min(1, { message: "Password is required." }),
+  petName: z.string().min(1, { message: "You must enter our secret name." }),
 });
 
 export default function LoginPage() {
@@ -38,8 +37,7 @@ export default function LoginPage() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      email: "",
-      password: "",
+      petName: "",
     },
   });
 
@@ -54,7 +52,7 @@ export default function LoginPage() {
     } else {
       toast({
         variant: "destructive",
-        title: "Uh oh! Something went wrong.",
+        title: "Not quite!",
         description: result.error,
       });
       form.reset();
@@ -69,32 +67,19 @@ export default function LoginPage() {
             <Heart className="h-8 w-8 text-primary" />
           </div>
           <CardTitle className="font-headline text-3xl">Welcome Back</CardTitle>
-          <CardDescription>Enter your credentials to access our space.</CardDescription>
+          <CardDescription>Whisper the secret name to enter our world.</CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               <FormField
                 control={form.control}
-                name="email"
+                name="petName"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Email</FormLabel>
+                    <FormLabel>Our Secret Pet Name</FormLabel>
                     <FormControl>
-                      <Input placeholder="our.love@example.com" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Password</FormLabel>
-                    <FormControl>
-                      <Input type="password" placeholder="our-secret-word" {...field} />
+                      <Input placeholder="What do we call each other?" {...field} type="password" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
