@@ -5,7 +5,6 @@ import {
   collection,
   query,
   orderBy,
-  addDoc,
   serverTimestamp,
 } from 'firebase/firestore';
 import { useCollection } from '@/firebase/firestore/use-collection';
@@ -17,8 +16,9 @@ import { Input } from "@/components/ui/input";
 import { Paperclip, SendHorizonal, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { useUser } from "@/firebase";
+import { useUser, addDocumentNonBlocking } from "@/firebase";
 
+export const dynamic = 'force-dynamic';
 
 interface Message {
   id?: string;
@@ -30,7 +30,7 @@ interface Message {
 }
 
 export default function ChatPage() {
-  const { firestore, auth } = useFirebase();
+  const { firestore } = useFirebase();
   const { user } = useUser();
   const [newMessage, setNewMessage] = useState("");
   const scrollAreaRef = useRef<HTMLDivElement>(null);
@@ -59,16 +59,20 @@ export default function ChatPage() {
     
     const petName = localStorage.getItem("petName");
 
-    const message: Omit<Message, 'id'> = {
+    const message: Omit<Message, 'id' | 'timestamp'> = {
       text: newMessage,
       senderId: user.uid,
-      timestamp: serverTimestamp(),
       avatar: `https://picsum.photos/seed/${petName === 'vishnu' ? 'p1' : 'p2'}/40/40`,
       name: petName === 'vishnu' ? "Vishnu" : "Vaishakhanandini",
     };
+    
+    const messageWithTimestamp = {
+        ...message,
+        timestamp: serverTimestamp(),
+    }
 
     try {
-      await addDoc(messagesCollection, message);
+      addDocumentNonBlocking(messagesCollection, messageWithTimestamp);
       setNewMessage("");
     } catch (error) {
       console.error("Error sending message:", error);
