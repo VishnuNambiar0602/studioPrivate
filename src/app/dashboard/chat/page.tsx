@@ -79,7 +79,7 @@ export default function ChatPage() {
     }
 
     try {
-      addDocumentNonBlocking(messagesCollection, messageWithTimestamp);
+      await addDocumentNonBlocking(messagesCollection, messageWithTimestamp);
       setNewMessage("");
     } catch (error) {
       console.error("Error sending message:", error);
