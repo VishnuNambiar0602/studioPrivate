@@ -1,3 +1,10 @@
 {
-  "placeholderImages": []
+  "placeholderImages": [
+    {
+      "id": "landing-bg",
+      "description": "A soft, romantic background with hearts.",
+      "imageUrl": "https://images.unsplash.com/photo-1640253620484-a6560cdfb80d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwzfHxoZWFydHMlMjBwYXR0ZXJufGVufDB8fHx8MTc2NTEyNDUzOHww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "hearts pattern"
+    }
+  ]
 }
