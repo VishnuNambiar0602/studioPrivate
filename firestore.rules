@@ -1,0 +1,118 @@
+/**
+ * Core Philosophy: This ruleset enforces a strict user-ownership model. All private
+ * user data (profiles, date nights, chat messages) is nested within a user-specific
+ * data tree, ensuring that users can only ever access their own information. A separate
+ * top-level collection provides public, read-only access to globally shared data.
+ *
+ * Data Structure: The data is organized into a primary `/users/{userId}` collection
+ * which contains user profiles and their private subcollections (`dateNights`,
+ * `chatMessages`). A separate top-level `/activitySuggestions` collection stores
+ * public data. This structural segregation simplifies security logic and enhances query
+ * performance by keeping private and public data physically separate.
+ *
+ * Key Security Decisions:
+ * - User Isolation: A user's access is strictly confined to their own document tree
+ *   at `/users/{userId}/{subcollection}/{docId}`.
+ * - Privacy by Default: Listing all users from the top-level `/users` collection is
+ *   explicitly forbidden to protect user privacy.
+ * - Read-Only Public Data: The `/activitySuggestions` collection is publicly readable
+ *   by any client but cannot be written to, as it is assumed to be managed by a
+ *   trusted backend process.
+ * - Path and Data Consistency: Rules enforce that internal ownership fields
+ *   (e.g., `userId`, `senderId`) in a document must match the `userId` in the path,
+ *   ensuring relational integrity.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions for reusable logic
+    // ------------------------------------
+
+    /**
+     * Checks if the user is authenticated.
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /**
+     * Checks if the authenticated user's UID matches the provided userId.
+     * This is the foundation of the user-ownership model.
+     * @param userId The user ID to check against the authenticated user.
+     */
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    /**
+     * Checks if a document exists and if the authenticated user is its owner.
+     * This is used for all update and delete operations to prevent modifying
+     * non-existent data.
+     * @param userId The user ID to check against the authenticated user.
+     */
+    function isExistingOwner(userId) {
+      return isOwner(userId) && resource != null;
+    }
+
+    /**
+     * @description Manages user profile documents.
+     * @path /users/{userId}
+     * @allow (get) An authenticated user 'user_abc' retrieving their own profile at `/users/user_abc`.
+     * @deny (list) Any user attempting to list all documents in the `/users` collection.
+     * @principle Restricts access to a user's own data tree and prevents user enumeration for privacy.
+     */
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow list: if false; // Disallow listing all users for privacy
+      allow create: if isOwner(userId) && request.resource.data.id == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+      allow delete: if isExistingOwner(userId);
+
+      /**
+       * @description Manages a user's private date night events.
+       * @path /users/{userId}/dateNights/{dateNightId}
+       * @allow (create) User 'user_abc' creating a new date night in their own subcollection.
+       * @deny (get) User 'user_xyz' trying to read a date night from `/users/user_abc/dateNights/date_123`.
+       * @principle Enforces document ownership within a user-specific subcollection.
+       */
+      match /dateNights/{dateNightId} {
+        allow get: if isOwner(userId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId) && request.resource.data.userId == userId;
+        allow update: if isExistingOwner(userId) && request.resource.data.userId == resource.data.userId;
+        allow delete: if isExistingOwner(userId);
+      }
+
+      /**
+       * @description Manages a user's private chat messages.
+       * @path /users/{userId}/chatMessages/{chatMessageId}
+       * @allow (create) User 'user_abc' creating a new chat message in their own subcollection.
+       * @deny (list) User 'user_xyz' trying to list messages from `/users/user_abc/chatMessages`.
+       * @principle Enforces document ownership and validates the sender ID for data integrity.
+       */
+      match /chatMessages/{chatMessageId} {
+        allow get: if isOwner(userId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId) && request.resource.data.senderId == userId;
+        allow update: if isExistingOwner(userId) && request.resource.data.senderId == resource.data.senderId;
+        allow delete: if isExistingOwner(userId);
+      }
+    }
+
+    /**
+     * @description Stores AI-generated activity suggestions.
+     * @path /activitySuggestions/{activitySuggestionId}
+     * @allow (get, list) Any user, authenticated or not, reading activity suggestions.
+     * @deny (create, update, delete) Any client attempting to modify the suggestions.
+     * @principle Provides public read-only access for data managed by a trusted backend.
+     */
+    match /activitySuggestions/{activitySuggestionId} {
+      allow get: if true;
+      allow list: if true;
+      allow create: if false; // Managed by a backend process, not clients
+      allow update: if false; // Managed by a backend process, not clients
+      allow delete: if false; // Managed by a backend process, not clients
+    }
+  }
+}
