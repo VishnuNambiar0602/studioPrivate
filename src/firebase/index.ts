@@ -32,11 +32,11 @@ export function initializeFirebase() {
   return getSdks(getApp());
 }
 
-export function getSdks(firebaseApp: FirebaseApp) {
+export function getSdks(FirebaseApp) {
   return {
-    firebaseApp,
-    auth: getAuth(firebaseApp),
-    firestore: getFirestore(firebaseApp)
+    firebaseApp: FirebaseApp,
+    auth: getAuth(FirebaseApp),
+    firestore: getFirestore(FirebaseApp)
   };
 }
 
