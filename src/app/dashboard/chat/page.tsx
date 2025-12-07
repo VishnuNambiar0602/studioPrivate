@@ -8,7 +8,7 @@ import {
   serverTimestamp,
 } from 'firebase/firestore';
 import { useCollection } from '@/firebase/firestore/use-collection';
-import { useFirebase } from '@/firebase/provider';
+import { useFirebase, useMemoFirebase } from '@/firebase/provider';
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -35,8 +35,15 @@ export default function ChatPage() {
   const [newMessage, setNewMessage] = useState("");
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
-  const messagesCollection = collection(firestore, 'users', 'shared', 'chatMessages');
-  const messagesQuery = query(messagesCollection, orderBy('timestamp', 'asc'));
+  const messagesCollection = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return collection(firestore, 'users', 'shared', 'chatMessages');
+  }, [firestore]);
+
+  const messagesQuery = useMemoFirebase(() => {
+    if (!messagesCollection) return null;
+    return query(messagesCollection, orderBy('timestamp', 'asc'));
+  }, [messagesCollection]);
 
   const { data: messages, isLoading } = useCollection<Message>(messagesQuery);
 
@@ -55,7 +62,7 @@ export default function ChatPage() {
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (newMessage.trim() === "" || !user) return;
+    if (newMessage.trim() === "" || !user || !messagesCollection) return;
     
     const petName = localStorage.getItem("petName");
 
