@@ -63,7 +63,7 @@ service cloud.firestore {
      * @principle Restricts access to a user's own data tree and prevents user enumeration for privacy.
      */
     match /users/{userId} {
-      allow get: if isOwner(userId);
+      allow get: if isOwner(userId) || userId == 'shared';
       allow list: if false; // Disallow listing all users for privacy
       allow create: if isOwner(userId) && request.resource.data.id == userId;
       allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
@@ -92,11 +92,11 @@ service cloud.firestore {
        * @principle Enforces document ownership and validates the sender ID for data integrity.
        */
       match /chatMessages/{chatMessageId} {
-        allow get: if isOwner(userId);
-        allow list: if isOwner(userId);
-        allow create: if isOwner(userId) && request.resource.data.senderId == userId;
-        allow update: if isExistingOwner(userId) && request.resource.data.senderId == resource.data.senderId;
-        allow delete: if isExistingOwner(userId);
+        allow get: if isSignedIn() && userId == 'shared';
+        allow list: if isSignedIn() && userId == 'shared';
+        allow create: if isSignedIn() && userId == 'shared' && request.resource.data.senderId == request.auth.uid;
+        allow update: if false;
+        allow delete: if false;
       }
     }
 
@@ -112,7 +112,7 @@ service cloud.firestore {
       allow list: if true;
       allow create: if false; // Managed by a backend process, not clients
       allow update: if false; // Managed by a backend process, not clients
-      allow delete: if false; // Managed by a backend process, not clients
+      delete: if false; // Managed by a backend process, not clients
     }
   }
 }

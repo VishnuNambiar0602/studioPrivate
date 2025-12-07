@@ -1,53 +1,44 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import {
+  collection,
+  query,
+  orderBy,
+  addDoc,
+  serverTimestamp,
+} from 'firebase/firestore';
+import { useCollection } from '@/firebase/firestore/use-collection';
+import { useFirebase } from '@/firebase/provider';
+
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Paperclip, SendHorizonal } from "lucide-react";
+import { Paperclip, SendHorizonal, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useUser } from "@/firebase";
+
 
 interface Message {
-  id: number;
+  id?: string;
   text: string;
-  sender: "me" | "them";
-  timestamp: string;
+  senderId: string;
+  timestamp: any;
   avatar: string;
   name: string;
 }
 
-const initialMessages: Message[] = [
-  {
-    id: 1,
-    text: "Hey, my love! I made this little world just for us. ❤️",
-    sender: "me",
-    timestamp: "10:00 AM",
-    avatar: "https://picsum.photos/seed/p1/40/40",
-    name: "You",
-  },
-  {
-    id: 2,
-    text: "Oh wow! This is the sweetest thing ever! I love it!",
-    sender: "them",
-    timestamp: "10:01 AM",
-    avatar: "https://picsum.photos/seed/p2/40/40",
-    name: "Your Love",
-  },
-  {
-    id: 3,
-    text: "I'm so glad you like it. I can't wait to fill it with our memories.",
-    sender: "me",
-    timestamp: "10:02 AM",
-    avatar: "https://picsum.photos/seed/p1/40/40",
-    name: "You",
-  },
-];
-
 export default function ChatPage() {
-  const [messages, setMessages] = useState<Message[]>(initialMessages);
+  const { firestore, auth } = useFirebase();
+  const { user } = useUser();
   const [newMessage, setNewMessage] = useState("");
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+
+  const messagesCollection = collection(firestore, 'users', 'shared', 'chatMessages');
+  const messagesQuery = query(messagesCollection, orderBy('timestamp', 'asc'));
+
+  const { data: messages, isLoading } = useCollection<Message>(messagesQuery);
 
   const scrollToBottom = () => {
     if (scrollAreaRef.current) {
@@ -62,25 +53,32 @@ export default function ChatPage() {
     scrollToBottom();
   }, [messages]);
 
-  const handleSendMessage = (e: React.FormEvent) => {
+  const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (newMessage.trim() === "") return;
+    if (newMessage.trim() === "" || !user) return;
+    
+    const petName = localStorage.getItem("petName");
 
-    const message: Message = {
-      id: messages.length + 1,
+    const message: Omit<Message, 'id'> = {
       text: newMessage,
-      sender: "me",
-      timestamp: new Date().toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
-      avatar: "https://picsum.photos/seed/p1/40/40",
-      name: "You",
+      senderId: user.uid,
+      timestamp: serverTimestamp(),
+      avatar: `https://picsum.photos/seed/${petName === 'vishnu' ? 'p1' : 'p2'}/40/40`,
+      name: petName === 'vishnu' ? "Vishnu" : "Vaishakhanandini",
     };
 
-    setMessages([...messages, message]);
-    setNewMessage("");
+    try {
+      await addDoc(messagesCollection, message);
+      setNewMessage("");
+    } catch (error) {
+      console.error("Error sending message:", error);
+    }
   };
+  
+  const getSender = (message: Message) => {
+    if (!user) return 'them';
+    return message.senderId === user.uid ? 'me' : 'them';
+  }
 
   return (
     <div className="flex h-screen flex-col bg-background p-4 md:p-6">
@@ -90,15 +88,20 @@ export default function ChatPage() {
       </header>
       <ScrollArea className="flex-1" ref={scrollAreaRef}>
         <div className="flex-1 space-y-6 p-4 md:p-6">
-          {messages.map((message) => (
+          {isLoading && (
+             <div className="flex items-center justify-center h-full">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+             </div>
+          )}
+          {messages && messages.map((message) => (
             <div
               key={message.id}
               className={cn(
                 "flex items-end gap-3",
-                message.sender === "me" ? "justify-end" : "justify-start"
+                getSender(message) === "me" ? "justify-end" : "justify-start"
               )}
             >
-              {message.sender === "them" && (
+              {getSender(message) === "them" && (
                 <Avatar className="h-8 w-8">
                   <AvatarImage src={message.avatar} alt={message.name} />
                   <AvatarFallback>{message.name.charAt(0)}</AvatarFallback>
@@ -107,15 +110,17 @@ export default function ChatPage() {
               <div
                 className={cn(
                   "max-w-xs rounded-lg p-3 lg:max-w-md",
-                  message.sender === "me"
+                  getSender(message) === "me"
                     ? "bg-primary text-primary-foreground"
                     : "bg-muted"
                 )}
               >
                 <p className="text-sm">{message.text}</p>
-                <p className="mt-1 text-xs text-right opacity-70">{message.timestamp}</p>
+                <p className="mt-1 text-xs text-right opacity-70">
+                   {message.timestamp?.toDate ? new Date(message.timestamp.toDate()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'sending...'}
+                </p>
               </div>
-              {message.sender === "me" && (
+              {getSender(message) === "me" && (
                 <Avatar className="h-8 w-8">
                   <AvatarImage src={message.avatar} alt={message.name} />
                   <AvatarFallback>{message.name.charAt(0)}</AvatarFallback>
@@ -136,8 +141,9 @@ export default function ChatPage() {
             placeholder="Type a message to your love..."
             className="flex-1"
             autoComplete="off"
+            disabled={!user}
           />
-          <Button type="submit" size="icon" className="shrink-0">
+          <Button type="submit" size="icon" className="shrink-0" disabled={!user || newMessage.trim() === ""}>
             <SendHorizonal className="h-5 w-5" />
           </Button>
         </form>

@@ -3,8 +3,10 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Heart } from "lucide-react";
+import { Heart, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { signInAnonymously } from "firebase/auth";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -25,6 +27,7 @@ import {
 } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { login } from "./actions";
+import { useAuth, useUser } from "@/firebase";
 
 const formSchema = z.object({
   petName: z.string().min(1, { message: "You must enter our secret name." }),
@@ -33,6 +36,17 @@ const formSchema = z.object({
 export default function LoginPage() {
   const router = useRouter();
   const { toast } = useToast();
+  const auth = useAuth();
+  const { user, isUserLoading } = useUser();
+  const [isSigningIn, setIsSigningIn] = useState(false);
+
+  useEffect(() => {
+    if (auth && !user && !isUserLoading && !isSigningIn) {
+      setIsSigningIn(true);
+      signInAnonymously(auth).finally(() => setIsSigningIn(false));
+    }
+  }, [auth, user, isUserLoading, isSigningIn]);
+  
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -44,6 +58,7 @@ export default function LoginPage() {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     const result = await login(values);
     if (result.success) {
+      localStorage.setItem("petName", values.petName.toLowerCase());
       toast({
         title: "Welcome!",
         description: "So happy to have you here.",
@@ -58,6 +73,8 @@ export default function LoginPage() {
       form.reset();
     }
   }
+  
+  const isLoading = form.formState.isSubmitting || isUserLoading || isSigningIn;
 
   return (
     <div className="flex min-h-screen items-center justify-center p-4">
@@ -85,8 +102,13 @@ export default function LoginPage() {
                   </FormItem>
                 )}
               />
-              <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
-                {form.formState.isSubmitting ? "Entering..." : "Enter Our World"}
+              <Button type="submit" className="w-full" disabled={isLoading}>
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Entering...
+                  </>
+                ) : "Enter Our World"}
               </Button>
             </form>
           </Form>

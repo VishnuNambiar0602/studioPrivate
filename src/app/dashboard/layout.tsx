@@ -14,6 +14,8 @@ import {
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { Heart, MessageSquare, Calendar, Sparkles, LogOut } from "lucide-react";
+import { useAuth } from "@/firebase";
+import { signOut } from "firebase/auth";
 
 export default function DashboardLayout({
   children,
@@ -21,6 +23,11 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const auth = useAuth();
+
+  const handleLogout = () => {
+    signOut(auth);
+  };
 
   const menuItems = [
     {
@@ -57,7 +64,7 @@ export default function DashboardLayout({
               <SidebarMenuItem key={item.href}>
                 <Link href={item.href} passHref>
                   <SidebarMenuButton
-                    isActive={pathname === item.href}
+                    isActive={pathname.startsWith(item.href)}
                     tooltip={item.label}
                   >
                     <item.icon />
@@ -69,7 +76,7 @@ export default function DashboardLayout({
           </SidebarMenu>
         </SidebarContent>
         <div className="p-4">
-           <Link href="/login">
+           <Link href="/login" onClick={handleLogout}>
               <Button variant="outline" className="w-full">
                 <LogOut className="mr-2 h-4 w-4" />
                 <span>Logout</span>
